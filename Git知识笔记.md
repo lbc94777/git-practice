@@ -118,6 +118,16 @@ HEAD → master → 最新提交 → parent → parent → … → 第一个提�
 
 - **`git log` 是目录**：列出很多个提交，默认只显示提交信息。加 `-p` 可以显示改动，加 `--stat` 可以显示改了哪些文件。
 - **`git show` 是详情页**：显示某一个提交的信息，以及它改了什么（diff）。写成 `git show <提交>:<文件>` 时，显示的是这个文件在那个版本的完整内容，没有 diff。
+- **show 的 diff 是和它的 parent（上一个 commit）比**，只显示那次 commit 本身改了什么，不是和现在的版本比。
+
+| 想看 | 命令 |
+|---|---|
+| 这个 commit 改了什么（和 parent 比） | `git show 75c91c4` |
+| 这个 commit 里文件的完整内容 | `git show 75c91c4:fruits.txt` |
+| 那个版本和我现在的文件差在哪 | `git diff 75c91c4 -- fruits.txt` |
+| 那个版本和最新 commit 差在哪 | `git diff 75c91c4 HEAD -- fruits.txt` |
+
+记法：show 看“一次 commit 本身”，diff 看“任意两个版本之间”。
 
 ## 在历史里搜索（命令行专长）
 
@@ -183,62 +193,116 @@ HEAD → master → 最新提交 → parent → parent → … → 第一个提�
 - 只看 .gitignore 不一定准：它写的是规则，不是文件清单。子文件夹里也可以有 .gitignore，规则会叠加。日常看资源管理器里的**灰色文件**就够了。
 - 是 `--ignored`，不是 `--ignore`，写错会报 ambiguous option。
 
-## 撤销和后悔药
+## 撤销和后悔药（阶段 2）
 
-### restore：撤销没提交的改动 / 取回旧版本
+### 先选对工具
+
+| 情况 | 用什么 |
+|---|---|
+| 改坏了还没 commit，想丢掉 | Discard（`git restore 文件`） |
+| add 错了，想拿出来 | Unstage（`git restore --staged 文件`） |
+| 想要某个文件的旧版本 | `git restore --source=commit号 文件` |
+| 刚 commit 完，message 写错 / 漏了文件 | `git commit --amend` |
+| 本地还没 push，想撤掉最近几个 commit | `git reset` |
+| 已经 push 了，或者只想撤掉中间某一个 | `git revert` |
+| commit 被 reset / amend 弄丢了 | `git reflog` 找 hash |
+
+**两条铁律**
+1. **从没 commit 过的改动丢了就找不回来**（Discard、`reset --hard`、`restore --source` 覆盖都是）。拿不准就先 commit。
+2. **已经 push 的 commit 不要 amend / reset**（会改写历史，和远程分叉），用 revert。
+
+### restore：撤销没 commit 的改动 / 取回旧版本
 
 | 我想… | GUI | 命令 |
 |---|---|---|
-| 丢掉工作区的修改 | 文件旁 ↶（放弃更改） | `git restore 文件` |
-| 取消暂存（修改保留） | 已暂存文件旁 − | `git restore --staged 文件` |
-| 把某个文件恢复成某次提交时的样子 | 不方便 | `git restore --source=08c717c fruits.txt` |
+| 丢掉 working tree 的修改 | 文件旁 ↶（Discard Changes） | `git restore 文件` |
+| unstage（修改保留） | 已 stage 文件旁 − | `git restore --staged 文件` |
+| 把某个文件换成某个 commit 里的版本 | 不方便 | `git restore --source=08c717c fruits.txt` |
+| 只挑旧版本里的某几处 | 不方便 | `git restore -p --source=08c717c fruits.txt`（逐块问，`y` 要 `n` 不要 `q` 结束） |
 
-- `--source` 可以写提交号，也可以写相对位置：`HEAD~1` 是上一个提交，`HEAD~3` 是往前数 3 个。
-- `--source` 会**直接覆盖**工作区里的这个文件，它上面没提交的改动会丢。恢复后文件只是“已修改”，满意了再提交。
-- 先只看不改：`git show 08c717c:fruits.txt`。
+- `--source` 可以写 hash，也可以写相对位置：`HEAD~1` 是上一个 commit，`HEAD~3` 是往前数 3 个。
+- **restore 不合并、不冲突，是整份覆盖**：文件变成那个版本，一字不差。
+  - 和已 commit 内容的差别只是显示为改动，Discard 就能回来。
+  - 这个文件上**未 commit 的改动会直接丢，没有提示**。
+- 只动 working tree：HEAD 和历史不变，文件显示为未 stage 的修改，满意就 commit，不满意就 Discard。文件名写 `.` 就是所有文件。
+- 只想要那次 commit **带来的改动**（不是整个文件）：`git cherry-pick commit号`（阶段 5）。
 - 文档里的 `<提交>` 表示“换成你自己的值”，`[...]` 表示可选，照抄时括号都要去掉。PowerShell 里 `<` 是特殊符号，带着它敲会报错。
 
-### commit --amend：修改最后一次提交
+### commit --amend：修改最后一次 commit
 
-- GUI：提交按钮旁 ▾ → **Commit (Amend)**。
-- `git commit --amend -m "新说明"` 改说明；`git commit --amend --no-edit` 说明不变，把暂存区的改动补进去。
-- **amend 是替换，不是修改**：生成一个新提交（提交号会变）顶替旧的。旧提交还在，reflog 里能找到（标 `commit (amend)` 的那条的下一条就是被顶替的）。
-- 只带上**暂存区**里的改动，没暂存的不会进去。
-- 只能改最后一次提交。**已推送的提交不要 amend**（会和远程分叉，只能强推）。
-- amend 后如果和上一个提交内容完全相同，Git 会拒绝（`would make it empty`）。
+- GUI：commit 按钮旁 ▾ → **Commit (Amend)**。
+- `git commit --amend -m "新message"` 改 message；`git commit --amend --no-edit` message 不变，把 staging area 的改动补进去。
+- 只写 `git commit --amend`：会打开编辑器（这里是 VS Code 的 `COMMIT_EDITMSG` 标签页），旧 message 已预先填好，关掉标签页就沿用。终端会一直等到标签页关闭；把内容删空再关就是取消。
+- **amend 是替换，不是修改**：新 commit = 上一个 commit 的内容 + staging area 的新改动 + 新 message，顶替掉旧的。所以 staging area 为空也能 amend（只改 message），而普通 commit 会提示 `nothing to commit`。
+- 只改 message，hash 也会变：hash 由内容、parent、作者、时间、message 一起算出。
+- 旧 commit 还在 reflog 里（`commit (amend)` 那条的下一条就是被顶替的）。
+- 只带 **staging area** 里的改动，没 stage 的不会进去。
+- 只能改最后一个 commit；改了之后和上一个 commit 完全相同时，Git 会拒绝（`would make it empty`）。
+- **改错用 amend，做新事用新 commit**。别对一个 commit 反复 amend 一整天：commit 就是存档点，多存几个不吃亏。
 
 ### reset：把分支退回去
 
-`git reset 提交号` 把当前分支（如 master）挪到那个提交上，后面的提交就不在历史里了。区别在于被退掉的**改动**去哪：
+`git reset commit号` 把当前分支（如 master）挪到那个 commit 上，后面的 commit 就不在历史里了。区别在于被退掉的**改动**去哪：
 
-| 模式 | 暂存区 | 工作区（文件） | 典型用途 |
+| 模式 | staging area | working tree | 典型用途 |
 |---|---|---|---|
-| `--soft` | 改动留在暂存区 | 保留 | **合并**几个提交：`reset --soft` 后直接提交一次 |
-| `--mixed`（默认） | 清空 | 改动留在工作区 | **拆分/重组**：退回后重新挑着 add |
-| `--hard` | 清空 | **清空** | 彻底丢掉这些提交和改动 |
+| `--soft` | 改动留在这里 | 不动 | **合并（squash）**几个 commit：reset 后直接 commit 一次 |
+| `--mixed`（默认） | 清空 | 改动留在这里 | **拆分/重组**：退回后挑着 add |
+| `--hard` | 清空 | **清空** | 彻底丢掉这些 commit 和改动 |
 
-- GUI：`…` → 提交 → 撤销上次提交 = `git reset --soft HEAD~1`。退多个提交要用命令行。
-- soft 和 mixed 只差“改动有没有暂存”，GUI 里一键全部暂存/全部取消暂存就能互相转换，选离下一步近的那个。
-- 目标写提交号比 `HEAD~4` 稳，不会数错。
-- ⚠️ `--hard` 会清掉**没提交**的改动，找不回来，用之前先 `git status`。
-- ⚠️ 已推送的提交不要 reset，用 revert。
-- 被 reset 掉的**提交**还能用 reflog 找回来。
+- GUI：`…` → 提交 → 撤销上次提交（Undo Last Commit）= `git reset --soft HEAD~1`。退多个 commit 用命令行。
+- soft 和 mixed 只差“改动有没有 stage”，GUI 里一键全部 stage / unstage 就能互相转换，选离下一步近的那个。
+- **reset 只比较两头的快照**，不会一个个回放中间的 commit。中间加了又删的内容，退回后看不到任何改动。
+- `--soft` 不碰 staging area 和 working tree：原来没 stage 的改动依旧没 stage，所以同一个文件可能同时出现在 staged 和 unstaged 里。此时 working tree 才是最新的，直接 add 就行。
+- squash 会让中间的 commit 从历史里消失，只压“过程垃圾”（测试、改错字、加了又删）。拿不准就先 `git branch 备份` 留一个分支指着旧历史。
+- 目标写 hash 比 `HEAD~4` 稳，不会数错。
+- ⚠️ `--hard` 会清掉**未 commit** 的改动，找不回来，用之前先 `git status`。
 
 ### revert：用新 commit 抵消旧 commit
 
-`git revert --no-edit commit号`：算出那个 commit 的 diff，反过来应用到**当前 HEAD** 上，再自动 commit（message 为 `Revert "原message"`）。历史不改写，只是往后追加。
+`git revert --no-edit commit号`：算出那个 commit 的 diff，反过来应用到**当前 HEAD** 上，再自动 commit（message 为 `Revert "原message"`）。历史不改写，新 commit 接在最后。
 
 | | reset | revert |
 |---|---|---|
 | 历史 | 改写，commit 消失 | 保留，多一个反向 commit |
 | 能撤销哪些 | 只能从最新往回退一段 | 任意一个，前后都不受影响 |
-| 已推送的 commit | ❌ | ✅ |
+| 已 push 的 commit | ❌ | ✅ |
 
 - VS Code 自带界面没有 revert 按钮，用命令行。不加 `--no-edit` 会打开 COMMIT_EDITMSG，关掉即接受默认 message。
-- 要求 staging area 干净，要改的文件也不能有未 commit 的改动（会被混进 commit 或覆盖）。
-- 撤销一次 revert = 再 revert 它（message 会变成 `Reapply "…"`）。
-- 那几行后来被改过 → **冲突**：手动改好、add，`git revert --continue`；或者 `git revert --abort` 放弃。
+- 要求 staging area 干净，要改的文件也不能有未 commit 的改动，否则会被混进 commit 或者被覆盖。无关文件有改动不影响。
+- 撤销一次 revert = 再 revert 它（message 变成 `Reapply "…"`）。
+- Git 只机械检查那次 commit 改过的几行（及上下文）现在是否原样：
+  - 没被动过 → 自动成功
+  - 被改过（或紧挨着的行被改过）→ **冲突**：手动改好、add，`git revert --continue`；或 `git revert --abort` 放弃
+  - 已经被改回原样 → 没东西可 commit
 - 越早 revert 越顺利；commit 越小越好 revert；改得面目全非时，直接手写一个修正 commit 更省事。
+
+### reflog ⭐：找回“丢掉”的 commit
+
+HEAD 每移动一次（commit、amend、reset、revert、切换分支…），Git 都会在 reflog 这本流水账里记一笔。被 reset / amend 弄丢的 commit，只要记得 hash 就能救回来。VS Code 界面看不到，纯命令行能力。
+
+```
+6b3b8d8 HEAD@{0}: commit: 添加榴莲
+74c6b59 HEAD@{1}: commit: 2-4
+4806492 HEAD@{2}: reset: moving to 4806492...
+```
+左边是做完这个动作后 HEAD 指向的 commit，`HEAD@{n}` 是往前数第 n 次移动，右边是动作和 message。
+
+- **`git reflog` = `git log -g` 的简写**：普通 log 顺着 parent 往前走，`-g` 顺着流水账往前翻。所以 log 的筛选参数都能用：
+  - `git log -g --oneline --grep=榴莲`：在流水账里搜
+- 找到 hash 之后：
+
+| 想要 | 命令 |
+|---|---|
+| 看内容 | `git show 75c91c4` |
+| 只取回一个文件 | `git restore --source=75c91c4 fruits.txt` |
+| 整个分支退回到它 | `git reset --hard 75c91c4`（它之后的 commit 会丢） |
+| 先挂个分支慢慢处理 | `git branch 救回来的 75c91c4` |
+
+- ⚠️ PowerShell 里 `HEAD@{2}` 要加引号写成 `'HEAD@{2}'`，或者直接用 hash。
+- ⚠️ 救不了**从未 commit 过**的改动。
+- ⚠️ 只在本地，push / clone 都不带；没有分支指向的 commit 约 30 天后可能被清理（有分支指向的记录约 90 天）。
+- 救之前先确认 working tree 干净，免得救一个丢一个。
 
 ## 要点
 
