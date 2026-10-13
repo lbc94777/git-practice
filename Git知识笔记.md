@@ -224,6 +224,22 @@ HEAD → master → 最新提交 → parent → parent → … → 第一个提�
 - ⚠️ 已推送的提交不要 reset，用 revert。
 - 被 reset 掉的**提交**还能用 reflog 找回来。
 
+### revert：用新 commit 抵消旧 commit
+
+`git revert --no-edit commit号`：算出那个 commit 的 diff，反过来应用到**当前 HEAD** 上，再自动 commit（message 为 `Revert "原message"`）。历史不改写，只是往后追加。
+
+| | reset | revert |
+|---|---|---|
+| 历史 | 改写，commit 消失 | 保留，多一个反向 commit |
+| 能撤销哪些 | 只能从最新往回退一段 | 任意一个，前后都不受影响 |
+| 已推送的 commit | ❌ | ✅ |
+
+- VS Code 自带界面没有 revert 按钮，用命令行。不加 `--no-edit` 会打开 COMMIT_EDITMSG，关掉即接受默认 message。
+- 要求 staging area 干净，要改的文件也不能有未 commit 的改动（会被混进 commit 或覆盖）。
+- 撤销一次 revert = 再 revert 它（message 会变成 `Reapply "…"`）。
+- 那几行后来被改过 → **冲突**：手动改好、add，`git revert --continue`；或者 `git revert --abort` 放弃。
+- 越早 revert 越顺利；commit 越小越好 revert；改得面目全非时，直接手写一个修正 commit 更省事。
+
 ## 要点
 
 - **`git status` 会提示下一步能做什么**，不会的时候先看它括号里的提示。
