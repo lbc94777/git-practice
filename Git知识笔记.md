@@ -304,6 +304,88 @@ HEAD 每移动一次（commit、amend、reset、revert、切换分支…），Gi
 - ⚠️ 只在本地，push / clone 都不带；没有分支指向的 commit 约 30 天后可能被清理（有分支指向的记录约 90 天）。
 - 救之前先确认 working tree 干净，免得救一个丢一个。
 
+## 分支与合并（阶段 3）
+
+### 分支是什么
+
+- **branch = 一个贴在 commit 上的标签**。`.git/refs/heads/master` 就是一个文本文件，里面只有一个 hash。所以建分支不花时间，删分支也不会删掉 commit。
+- commit 只记录自己的 parent，**只能往回找，不能往前找**。所以需要 branch 记住最新的 commit 是哪个，`git log` 就是从 branch 出发顺着 parent 往回走。没有 branch 指着的 commit，log 和 GUI 都看不到，只能去 reflog 里找。
+- **HEAD = 当前在哪个分支上**（`.git/HEAD` 里写的是 `ref: refs/heads/master`）。commit 时只有当前分支往前挪。
+- commit 本身不记录自己属于哪个分支。说“这个 commit 在 master 上”，意思是从 master 往回走能走到它。共有的历史同时属于好几个分支。
+- **working tree 和 staging area 都只有一份，所有分支共用。只有 commit 属于分支。**
+
+### 命令速查
+
+| 想做什么 | 命令 |
+|---|---|
+| 新建并切过去（最常用） | `git switch -c add-melon` |
+| 切到已有分支 | `git switch master`（已有的分支不能加 `-c`，会报 already exists） |
+| 切回上一个分支 | `git switch -` |
+| 只建不切 / 动手前留存档点 | `git branch backup` |
+| 从旧 commit 开分支 | `git switch -c old-version 74c6b59` |
+| 列出分支 / 带最新 commit | `git branch` / `git branch -v` |
+| 改名 | `git branch -m new-name` |
+| 删除（已合并） / 强制删除 | `git branch -d 名字` / `git branch -D 名字` |
+| 看所有分支的走向 ⭐ | `git log --oneline --graph --all`（GUI：源代码管理里的 Graph） |
+| 比较两个分支的内容 | `git diff master add-melon` |
+| B 有、A 没有的 commit | `git log --oneline A..B`（方向别写反） |
+| 某个 commit 在哪些分支里 | `git branch --contains 74c6b59` |
+
+- GUI：点左下角的分支名，可以切换或新建分支。
+- `--graph` 画出分叉线，`--all` 显示所有分支（不加只显示当前分支），`-5` 只显示最近 5 个 commit。括号里的 `(HEAD -> master)` 表示你现在在 master 上。
+- `-d`：分支上有 commit 没合并进**当前分支**时会拒绝（`not fully merged`）。先用 `-d`，被拒绝时想清楚了再用 `-D`。不能删除当前所在的分支。
+- 网上常见的 `git checkout 分支` 是旧写法，和 switch 是一回事。
+- ⚠️ detached HEAD：HEAD 直接指着一个 commit，没有指着分支。在这种状态下 commit，切走以后新 commit 就丢了。想在旧版本上改东西，用 `git switch -c 新分支 hash`。
+
+### 带着没 commit 的改动切换分支
+
+- 文件在两个分支上**内容一样**：改动跟着你走（stage 过的也仍然是 stage 状态）。
+- 文件在两个分支上**内容不一样**：拒绝切换（`Your local changes ... would be overwritten`），因为切过去改动会被覆盖。**stage 了也一样会被拒绝**，staging area 同样会被换成目标分支的版本。
+- 被拒绝时：要留着就 commit，不要了就 `git restore 文件`，想先收起来就用 `git stash`（阶段 5）。
+- 改到一半才想起应该开分支：直接 `git switch -c 新分支`。新分支和当前分支指着同一个 commit，切换一定成功，改动也会跟过去。
+- Git 宁可拒绝切换，也不会悄悄丢掉你的改动。切换前最好先让 working tree 干净。
+
+### merge
+
+**规矩：先切到接收改动的分支，再把别的分支合进来。** 合并前先用 `git log --oneline master..分支` 看看会带进来什么。
+
+| | 快进合并（Fast-forward） | 三方合并 |
+|---|---|---|
+| 什么时候 | 当前分支在这期间没有新 commit | 两边都有新 commit |
+| 做了什么 | 直接把标签往前挪 | 比较分叉点 + 两边最新的 commit，生成 merge commit |
+| 新 commit | 没有 | 有，而且有**两个 parent** |
+| Graph | 一条直线 | 先分叉再汇合 |
+
+- 三方合并会打开 VS Code 的 `MERGE_MSG` 标签页让你确认信息，关掉标签页就完成了（终端里的 `Waiting for your editor` 不是卡住了）。加 `--no-edit` 会直接用默认信息 `Merge branch 'xxx'`。
+- `--no-edit` 只是跳过编辑信息这一步，**不会帮你解决冲突**。
+- Graph 里，merge commit 的第一个 parent（合并时你所在的分支）画成主线，合并进来的分支画成支线。
+- merge 之前的位置记在 `ORIG_HEAD` 里，合错了可以 `git reset --hard ORIG_HEAD`。
+- 合并完的分支用 `-d` 删掉。
+
+### 解决冲突
+
+**冲突的条件：两边都改了同一处，而且改得不一样。** 只有一边改了的地方 Git 会自动合并，哪怕在同一个文件里。
+
+```
+<<<<<<< HEAD
+蓝莓          ← 当前分支（你站着的那个分支）
+=======
+番茄          ← 合并进来的分支
+>>>>>>> add-tomato
+```
+
+- 有一边是空的：说明那一边**删掉了**这段内容（一边删、一边改）。
+- VS Code 按钮：Accept Current / Accept Incoming / **Accept Both** / Compare。按钮显示不全时，用 `Ctrl+B` 收起侧边栏。Accept Both 按“当前分支在前、合进来的在后”排列。
+- 按钮给不出想要的结果时（比如 `大青苹果`），就手动编辑。**归根结底就是把文件改成正确的样子，再删干净三行标记。**“保留双方”不一定对，改完要看一眼结果。
+- 步骤：改好并保存 → `git add 文件`（合并过程中 add = 告诉 Git 这个冲突解决了；GUI 里在 Merge Changes 分组点 `+`）→ `git commit --no-edit`
+- 搞乱了：`git merge --abort` 回到合并前，只要还没 commit 都能用。
+- 合并没完成时，不能开始下一次 merge（`MERGE_HEAD exists`）。
+
+### reset 共有的 commit
+
+- reset 只挪当前分支的标签。别的分支照样指着原来的 commit，不受影响。
+- ⚠️ 坑：在 master 上 reset 掉的 commit，如果别的分支的历史里还有，下次 merge 那个分支时，它会被带回来。想撤销共有历史里的 commit，用 revert。
+
 ## 要点
 
 - **`git status` 会提示下一步能做什么**，不会的时候先看它括号里的提示。
