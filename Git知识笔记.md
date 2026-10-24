@@ -472,6 +472,47 @@ git pull                               # = fetch + merge
 - `origin/master` 本质上就是个分支，合并它和阶段 3 合并普通分支一样；本地没有新 commit 时就是 **Fast-forward**。
 - 日常用 `pull`；想先看看远程改了什么再决定，就分开用 `fetch` + `merge`。
 
+### clone
+
+```bash
+git clone git@github.com:lbc94777/git-practice.git git-practice-B   # 最后是文件夹名，可省略
+git branch -a                                                       # 看本地 + 远程跟踪分支
+```
+
+- 下载全部文件和**完整历史**，并自动设置好 origin 和 master 的上游，下载完直接能 push / pull。
+- 相当于一口气做了：新建文件夹 → `git init` → `git remote add origin` → `git fetch` → 切到 master 并设好上游。
+- **仓库从你这里开始，用 init；仓库已经在 GitHub 上了，用 clone**（换电脑、加入别人的项目、看开源代码）。
+- 被 `.gitignore` 忽略的文件（`.env` 等）从没进过 commit，clone 下来也没有。换电脑时这类文件要自己另外拷贝。
+- `origin/HEAD -> origin/master`：记录远程仓库的默认分支是哪个。
+
+### 两人改了同一处：push 被拒绝 → pull → 解决冲突 → push
+
+1. 远程有自己没有的 commit 时，push 报 `! [rejected] ... (fetch first)`。Git 不允许覆盖别人的 commit。
+   - ⭐ **拒绝和冲突是两回事**：拒绝只看**历史**（你推的历史必须包含远程最新的 commit，即只能快进），和改了什么内容无关，改不同文件也会被拒绝；冲突是 pull 时才检查的**内容**（两边改了同一处）。
+   - `git push --force`：强推，远程分支直接挪到你的 commit，别人的 commit 从远程消失。共用分支上禁止使用；只在自己的分支、改写过历史时用，而且用更安全的 `git push --force-with-lease`。
+2. `git pull` 的输出分两段：前半是 fetch（`2013482..e3aec9f master -> origin/master`），后半是 merge（`CONFLICT` 或 `Fast-forward`）。
+3. 冲突和阶段 3 一样处理：`HEAD` 那半是自己的，另一半是从远程拉下来的。改好后 add → commit → push。
+4. 另一边再 `git pull`，就是 Fast-forward。
+5. 💡 养成习惯：**开始干活前先 pull，干完马上 push**，能大大减少冲突。
+
+### 不想马上合并别人的修改
+
+- `git pull` 会直接合并到**当前分支**。想先看再决定，用 `git fetch` + `git log master..origin/master` / `git diff`，满意了再 `git merge`。
+- 冲突还没解决时后悔：`git merge --abort`，恢复到 pull 之前。
+- 合并完成后后悔：`git reset --hard ORIG_HEAD`（`ORIG_HEAD` 是合并前自动记下的位置）。
+- 同一个分支上迟早要合并，否则 push 不上去。真正的办法是**各自在自己的分支上干活**，通过 Pull Request 合并进 master（阶段 5）。
+
+### 谁能 push：权限
+
+| 身份 | 能直接 push 吗 | 怎么贡献 |
+|---|---|---|
+| Owner（仓库是你建的） | ✅ | 直接 push |
+| Collaborator（Settings → Collaborators 里被邀请的人） | ✅ | 直接 push |
+| 其他人 | ❌ `Permission denied` / `403` | **Fork**（复制一份到自己账号）→ push 到副本 → 发 **Pull Request** → owner 审查后合并 |
+
+- push 被拒绝有两种完全不同的原因：**没权限**（身份问题），或**历史对不上**（缺远程最新的 commit）。
+- 公司仓库常给 master 开**分支保护**：有权限也不能直接 push / 强推，必须走 PR 并经同事审查。
+
 ## 要点
 
 - **`git status` 会提示下一步能做什么**，不会的时候先看它括号里的提示。
