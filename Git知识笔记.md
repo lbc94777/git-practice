@@ -400,8 +400,38 @@ HEAD 每移动一次（commit、amend、reset、revert、切换分支…），Gi
 - `user.email` 要设成 GitHub 账号里已添加的邮箱，③ 才对得上。改邮箱只影响以后的 commit。
 - 因为 ① 不验证，commit 作者可以冒充。可信的证明是 **commit 签名**（网页上显示 Verified），阶段 6 选学。
 
+### SSH 是什么
+
+- **SSH = Secure Shell**：两台电脑之间建立**加密连接**的协议。最初用来远程登录服务器敲命令；GitHub 只把它当传输 Git 数据的通道，不给 shell（所以提示 `does not provide shell access`）。
+- 解决两个问题：**防偷看**（全程加密）、**防冒充**（双方都要证明身份）。
+- **服务器证明自己**：第一次连接问 `yes/no`，答 yes 后服务器公钥记进 `~/.ssh/known_hosts`；以后对不上就报 WARNING 拒绝连接。
+- **你证明自己**：公钥 = 锁（可以随便给），私钥 = 唯一的钥匙。GitHub 出题，你用私钥算答案，GitHub 用公钥检验。**私钥从不发出去**；私钥泄露 = 别人能用你的身份 push。
+- `ssh -vT git@github.com`：看连接全过程（`Server host key` → `is known and matches` → `Offering public key` → `Authenticated`）。
+
+### 网络分层：SSH 不负责传信号
+
+| 层 | 负责什么 | 快递比喻 |
+|---|---|---|
+| 物理连接（Wi-Fi、网线、光纤、运营商） | 传信号 | 公路、货车 |
+| IP | 地址和找路 | 收件地址、中转站 |
+| TCP | 不丢、不乱序 | 签收、补发 |
+| **SSH** | 加密 + 身份验证 | 带锁的保险箱 |
+| Git | 要传的 commit | 箱子里的货 |
+
+- 每层只管自己的事；数据沿途经过的设备都能看到“谁发给谁”，但打不开 SSH 的箱子。
+- **端口**：SSH 用 22，HTTPS 用 443。`tracert github.com`（cmd/PowerShell）可以看沿途的中转站。
+
+### SSH 的时效
+
+- **连接**：每次 push / fetch 都是“连上 → 验证 → 传数据 → 断开”，没有“登录过期”这回事。
+- **密钥**：默认不过期。失效的情况：在 GitHub 删了公钥、本地私钥没了、**一年没用被 GitHub 自动删除**。失效时报 `Permission denied (publickey)`，重做 4-1 即可。
+- 每台电脑各生成一把密钥，不要复制私钥。电脑丢了就在 GitHub 上删掉那一把。
+- 对比：HTTPS 方式（包括 VS Code 登录 GitHub）用**令牌**，一般有有效期。
+- 不是非得用 SSH：远程地址是 `git@github.com:...` 走 SSH，`https://...` 走 HTTPS。VS Code 点推送，背后就是运行 `git push`。
+
 ### SSH 密钥
 
+- `ssh -T git@github.com`：`-T` = 不要终端，只测试连接。用户名所有人都是 `git`，GitHub 靠公钥认出你。
 - `ssh-keygen -t ed25519 -C "备注"`：生成密钥。`-C` 只是备注，写什么都行。
 - `~/.ssh/id_ed25519` 是**私钥**，永远不给任何人；`id_ed25519.pub` 是**公钥**，加到 GitHub → Settings → SSH keys。
 - `ssh -T git@github.com`：测试连接，显示 `Hi 用户名! You've successfully authenticated` 就成功了。
@@ -417,10 +447,30 @@ git push                                                         # 以后直接�
 git branch -vv                                                   # 看每个本地分支对应哪个远程分支
 ```
 
+- `git remote add` **不联网**，只是在 `.git/config` 里记一条“名字 → 地址”。其他操作：`git remote rename`、`git remote set-url`、`git remote remove`。
+- 地址 `git@github.com:lbc94777/git-practice.git` = `用户@服务器` + `:` + 仓库路径。
+- push 只发送远程**缺的** commit，然后挪动远程的 master 和本地的 `origin/master`。
+- **`-u` 设置 upstream（上游）**：记住“本地 master 对应 origin/master”，之后 `git push` / `git pull` 不用写参数，status 也能显示领先/落后几个 commit。只需第一次加。
+- ⚠️ 远程有你本地没有的 commit 时，push 会**被拒绝**，要先 pull 下来。
 - 在 GitHub 新建仓库时，**不要勾选 README / .gitignore / license**，保持空仓库，否则第一次推送会冲突。
 - push 推的是 **commit**。被 `.gitignore` 忽略的文件从没进过 commit，不会被推上去。
 - **`origin/master`（远程跟踪分支）**：记录“上次和 GitHub 通信时，GitHub 上的 master 在哪”。它和 `master` 指着同一个 commit，就是已同步。
 - 私有仓库的贡献默认只有自己能看到；个人主页 Contribution settings 里勾选 Private contributions，别人才能看到（只显示数量）。
+
+### fetch / pull
+
+```bash
+git fetch                              # 下载远程的新 commit，只挪 origin/master，不动 master 和文件
+git log --oneline master..origin/master   # 远程有、本地没有的 commit
+git diff master origin/master          # 具体改了什么
+git merge                              # 把 origin/master 合并进当前分支
+git pull                               # = fetch + merge
+```
+
+- **`git status` 不联网**。`up to date with 'origin/master'` 的意思是“和**上次知道的** GitHub 一致”，想知道最新情况要先 fetch。
+- fetch 后 status 显示 `behind ... by 1 commit, and can be fast-forwarded`。
+- `origin/master` 本质上就是个分支，合并它和阶段 3 合并普通分支一样；本地没有新 commit 时就是 **Fast-forward**。
+- 日常用 `pull`；想先看看远程改了什么再决定，就分开用 `fetch` + `merge`。
 
 ## 要点
 
