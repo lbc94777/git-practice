@@ -386,6 +386,27 @@ HEAD 每移动一次（commit、amend、reset、revert、切换分支…），Gi
 - reset 只挪当前分支的标签。别的分支照样指着原来的 commit，不受影响。
 - ⚠️ 坑：在 master 上 reset 掉的 commit，如果别的分支的历史里还有，下次 merge 那个分支时，它会被带回来。想撤销共有历史里的 commit，用 revert。
 
+## 远程仓库与 GitHub（阶段 4）
+
+### 三件互相独立的事
+
+| | 是什么 | 设置在哪 | 决定什么 |
+|---|---|---|---|
+| ① commit 作者 | commit 里写的名字和邮箱，**不验证**，随便写 | `git config --global user.name` / `user.email` | 只是个签名 |
+| ② push 身份 | 连接 GitHub 时证明“我是谁” | SSH 密钥，或 HTTPS 登录（VS Code 登录 GitHub 属于这种） | 能不能 push |
+| ③ 网页显示 | GitHub 拿 commit 里的邮箱去找账号 | GitHub 设置 → Emails | commit 显示成谁、算不算进贡献格子 |
+
+- VS Code 登录哪个账号，**不会改** `user.email`。
+- `user.email` 要设成 GitHub 账号里已添加的邮箱，③ 才对得上。改邮箱只影响以后的 commit。
+- 因为 ① 不验证，commit 作者可以冒充。可信的证明是 **commit 签名**（网页上显示 Verified），阶段 6 选学。
+
+### SSH 密钥
+
+- `ssh-keygen -t ed25519 -C "备注"`：生成密钥。`-C` 只是备注，写什么都行。
+- `~/.ssh/id_ed25519` 是**私钥**，永远不给任何人；`id_ed25519.pub` 是**公钥**，加到 GitHub → Settings → SSH keys。
+- `ssh -T git@github.com`：测试连接，显示 `Hi 用户名! You've successfully authenticated` 就成功了。
+- 复制公钥到剪贴板：Git Bash 用 `cat ~/.ssh/id_ed25519.pub | clip`，PowerShell 用 `Get-Content ~/.ssh/id_ed25519.pub | Set-Clipboard`。命令执行后终端没有输出是正常的。
+
 ## 要点
 
 - **`git status` 会提示下一步能做什么**，不会的时候先看它括号里的提示。
