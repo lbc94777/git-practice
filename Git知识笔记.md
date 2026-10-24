@@ -398,6 +398,8 @@ HEAD 每移动一次（commit、amend、reset、revert、切换分支…），Gi
 
 - VS Code 登录哪个账号，**不会改** `user.email`。
 - `user.email` 要设成 GitHub 账号里已添加的邮箱，③ 才对得上。改邮箱只影响以后的 commit。
+- 换了邮箱，旧 commit **不用改写**，把旧邮箱也加到 GitHub 账号里就行（改写历史要强推，还可能把 commit 日期改掉）。
+- 绿格子按 **commit 的日期**画，不是 push 的日期；更新可能延迟到 24 小时。
 - 因为 ① 不验证，commit 作者可以冒充。可信的证明是 **commit 签名**（网页上显示 Verified），阶段 6 选学。
 
 ### SSH 是什么
