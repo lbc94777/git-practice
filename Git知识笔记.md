@@ -407,6 +407,21 @@ HEAD 每移动一次（commit、amend、reset、revert、切换分支…），Gi
 - `ssh -T git@github.com`：测试连接，显示 `Hi 用户名! You've successfully authenticated` 就成功了。
 - 复制公钥到剪贴板：Git Bash 用 `cat ~/.ssh/id_ed25519.pub | clip`，PowerShell 用 `Get-Content ~/.ssh/id_ed25519.pub | Set-Clipboard`。命令执行后终端没有输出是正常的。
 
+### remote + push
+
+```bash
+git remote add origin git@github.com:lbc94777/git-practice.git   # 添加远程，起名 origin
+git remote -v                                                    # 查看远程地址
+git push -u origin master                                        # 第一次推送，-u 记住对应关系
+git push                                                         # 以后直接推
+git branch -vv                                                   # 看每个本地分支对应哪个远程分支
+```
+
+- 在 GitHub 新建仓库时，**不要勾选 README / .gitignore / license**，保持空仓库，否则第一次推送会冲突。
+- push 推的是 **commit**。被 `.gitignore` 忽略的文件从没进过 commit，不会被推上去。
+- **`origin/master`（远程跟踪分支）**：记录“上次和 GitHub 通信时，GitHub 上的 master 在哪”。它和 `master` 指着同一个 commit，就是已同步。
+- 私有仓库的贡献默认只有自己能看到；个人主页 Contribution settings 里勾选 Private contributions，别人才能看到（只显示数量）。
+
 ## 要点
 
 - **`git status` 会提示下一步能做什么**，不会的时候先看它括号里的提示。
