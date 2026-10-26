@@ -515,6 +515,27 @@ git branch -a                                                       # 看本地 
 - push 被拒绝有两种完全不同的原因：**没权限**（身份问题），或**历史对不上**（缺远程最新的 commit）。
 - 公司仓库常给 master 开**分支保护**：有权限也不能直接 push / 强推，必须走 PR 并经同事审查。
 
+## 日常协作（阶段 5）
+
+### stash：把没 commit 的改动先收起来
+
+适用场景：改到一半，要临时切去别的分支干别的事（比如修紧急 bug），现在的改动又不想 commit。
+
+| 命令 | 作用 |
+|---|---|
+| `git stash` | 收起已跟踪文件的改动，working tree 变干净 |
+| `git stash -u` | 连 untracked（新建的）文件一起收 |
+| `git stash -m "火龙果茄子"` | 给这条 stash 起名字，存了好几条的时候才分得清 |
+| `git stash list` | 查看所有 stash，最新的一条是 `stash@{0}` |
+| `git stash pop` | 拿回最新的一条，并从列表里删掉 |
+| `git stash apply` | 拿回来，但列表里保留这条 |
+| `git stash drop` | 删掉最新的一条 |
+
+- ⚠️ **新建的文件默认不会被 stash**，还会留在 working tree 里。要收就加 `-u`。
+- 典型流程：`stash` → `switch -c hotfix` → 修复并 commit → `switch master` → `merge hotfix` → `branch -d hotfix` → `stash pop`。
+- 在 hotfix 修的东西和 stash 里的改动可以同时保留，pop 时 Git 会把两边合起来。
+- **Fast-forward 的条件**：开分支之后 master 没有新的 commit，Git 只需把 master 的指针往前挪。能不能快进跟有没有冲突无关。
+
 ## 要点
 
 - **`git status` 会提示下一步能做什么**，不会的时候先看它括号里的提示。
