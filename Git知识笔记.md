@@ -536,6 +536,34 @@ git branch -a                                                       # 看本地 
 - 在 hotfix 修的东西和 stash 里的改动可以同时保留，pop 时 Git 会把两边合起来。
 - **Fast-forward 的条件**：开分支之后 master 没有新的 commit，Git 只需把 master 的指针往前挪。能不能快进跟有没有冲突无关。
 
+#### pop 时冲突
+
+- stash 之后又改了同一处并 commit，pop 时会冲突。冲突标记里 `Updated upstream` 是后来 commit 的版本，`Stashed changes` 是 stash 里的版本。
+- ⚠️ **冲突时 stash 不会被删**。解决冲突后 `git add`，再手动 `git stash drop`。
+- pop 时文件里还有没 commit 的改动：Git 直接拒绝，什么都不动。
+- 不想处理冲突：`git stash branch 新分支名`，从 stash 时所在的 commit 开分支放回去，一定不冲突。
+- stash 本质是一个不在任何分支上的 commit（快照）。pop 之前可以 `git stash show -p` 看内容。
+
+### Pull Request（PR）
+
+- 在 GitHub 上请求「把我的分支合进 master」，同事可以审查、评论后再合并。GitLab 叫 **Merge Request（MR）**，是同一个东西。
+- 名字来自早期邮件协作：请维护者从我的仓库 pull 改动。
+- 流程：`switch -c 分支` → commit → `push -u origin 分支` → 点输出里的链接发 PR → 网页上合并 → 点 **Delete branch** → 本地 `switch master` → `pull` → `branch -d 分支` → `fetch --prune`。
+- 三种合并方式：**Create a merge commit**（保留所有 commit 加一个 merge commit）、**Squash and merge**（压成一个 commit）、**Rebase and merge**（不生成 merge commit，接到 master 后面）。
+- 可以在网页上改 PR：Files changed 里 `⋯` → Edit file；审查的人可以用 **Suggest changes**，作者点 **Commit suggestion**。在 PR 页面按 `.` 打开网页版 VS Code。
+- ⚠️ 网页上改过分支，本地就落后了。回到本地先 `git pull` 再干活，否则 push 会被拒。
+
+### pull 拉的是哪个分支
+
+- `git pull` 只拉**当前分支的 upstream**（`git branch -vv` 方括号里的那个）。在 master 上拉 `origin/master`，在功能分支上拉 `origin/功能分支`。
+- `git fetch` 下载所有分支的更新，但哪个分支都不动。
+- ⚠️ `git pull origin master` 是把远程 master 合进**当前分支**，不会切到 master。
+- 没有 upstream 的分支 `git pull` 会报 `There is no tracking information`。
+- push 被拒的本质：远程有你本地没有的 commit（分叉了），push 会把它挤掉，所以要先 pull 合并。
+- **master 上直接 pull**（只会快进）；功能分支上要不要合 master 的新东西，先 fetch 看看再决定。
+- `git pull --ff-only`：只允许快进，分叉了就拒绝。设为默认：`git config --global pull.ff only`。
+- VS Code 打开 `git.autofetch`，状态栏 `↓1` 表示远程有新 commit，`↑1` 表示有没 push 的 commit。
+
 ## 要点
 
 - **`git status` 会提示下一步能做什么**，不会的时候先看它括号里的提示。
