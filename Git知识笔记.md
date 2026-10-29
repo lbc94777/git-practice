@@ -564,6 +564,30 @@ git branch -a                                                       # 看本地 
 - `git pull --ff-only`：只允许快进，分叉了就拒绝。设为默认：`git config --global pull.ff only`。
 - VS Code 打开 `git.autofetch`，状态栏 `↓1` 表示远程有新 commit，`↑1` 表示有没 push 的 commit。
 
+### rebase：把分支接到最新的 master 后面
+
+- 用法：先 `switch` 到**要被搬动的分支**，再 `git rebase master`。
+- 作用：把分支上的 commit 按顺序在 master 最新 commit 后面**重新做一遍**，分叉消失，历史变成一条直线。之后回到 master 去 merge 就只是 fast-forward。
+- 和 merge 比：**最后的文件内容一样，区别在历史的形状**。merge 保留分叉，多一个 merge commit；rebase 是直线，没有 merge commit。
+- rebase 出来的是**新 commit，hash 会变**。旧的 commit 还在，可以用 `reflog` 找回来。
+- ⚠️ 铁律：**已经 push、别人可能在用的 commit 不要 rebase**。只对自己本地、还没推送的分支用。
+- working tree 有没 commit 的改动时，rebase 会拒绝运行，要先 commit 或 stash。
+
+### git pull --rebase
+
+- `git pull` = fetch + **merge**；`git pull --rebase` = fetch + **rebase**。
+- 用途：本地有没 push 的 commit，远程又有别人的新 commit 时，把自己的 commit 接到远程最新的 commit 后面，不会多出 `Merge branch 'master' of ...` 这种没意义的 merge commit。
+- 只换掉自己没 push 的 commit 的 hash，符合铁律，是 rebase 最常用的场景。
+- 设为默认：`git config --global pull.rebase true`（Git 安装时默认是 `false`，即 merge）。
+
+#### rebase 冲突
+
+- 流程：改文件 → `git add 文件` → `git rebase --continue`（**不是 commit**）。放弃：`git rebase --abort`，回到 rebase 之前的状态。
+- ⚠️ **冲突标记里 `HEAD` 是对方（远程/master）的内容，`>>>>>>>` 后面那段才是自己的**，和 merge 冲突相反。VS Code 的"当前 / 传入"也跟着反过来。
+- 冲突中 `git branch` 显示 `(no branch, rebasing master)`，log 里暂时看不到自己的 commit，没丢，只是还没搬过来。
+- commit 是一个一个搬的（`Rebasing (1/2)`），可能要冲突、解决好几轮。
+- 忘了下一步就看 `git status`。
+
 ## 要点
 
 - **`git status` 会提示下一步能做什么**，不会的时候先看它括号里的提示。
