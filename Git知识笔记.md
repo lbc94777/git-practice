@@ -605,6 +605,21 @@ git branch -a                                                       # 看本地 
 - 平时 HEAD 指向分支；`detached` 时 HEAD 直接指向一个 commit，不在任何分支上。`git status` 显示 `HEAD detached at ...`。
 - 在这种状态下**只看不改**：这里做的 commit 不属于任何分支，切走后就找不到了（只能靠 reflog）。
 - 想基于旧版本改东西，先建分支：`git switch -c 新分支名`。
+
+### cherry-pick：从别的分支挑一个 commit 复制过来
+
+- 用法：切到**要接收的分支**，`git cherry-pick 3fa5974`。只复制这一个 commit 的改动，分支上别的 commit 都不带。
+- 场景：实验分支上大部分没做完，但其中一个（比如修 bug 的）现在就要用。
+- 复制出来的是**新 commit，hash 会变**；原分支上的 commit 原样保留。
+- rebase 其实就是自动连续做好几次 cherry-pick。
+- 冲突处理和 rebase 一样：改文件 → `git add` → `git cherry-pick --continue`；放弃用 `--abort`，跳过用 `--skip`。
+- 容易冲突的情况：挑的 commit 依赖了前面没被挑的 commit。所以要挑的 commit 最好是独立的。
+
+### 删除没合并的分支
+
+- `git branch -d` 只删**已经合并**的分支。分支上还有 commit 不在当前分支里，会报 `not fully merged`。
+- 确定不要了就用 `git branch -D` 强制删除。删掉的 commit 还能用 reflog 找回来。
+- cherry-pick 过来的 commit hash 不同，Git 不认为它"已合并"。
 - ⚠️ **冲突标记里 `HEAD` 是对方（远程/master）的内容，`>>>>>>>` 后面那段才是自己的**，和 merge 冲突相反。VS Code 的"当前 / 传入"也跟着反过来。
 - 冲突中 `git branch` 显示 `(no branch, rebasing master)`，log 里暂时看不到自己的 commit，没丢，只是还没搬过来。
 - commit 是一个一个搬的（`Rebasing (1/2)`），可能要冲突、解决好几轮。
