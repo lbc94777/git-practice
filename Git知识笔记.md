@@ -583,6 +583,11 @@ git branch -a                                                       # 看本地 
 #### rebase 冲突
 
 - 流程：改文件 → `git add 文件` → `git rebase --continue`（**不是 commit**）。放弃：`git rebase --abort`，回到 rebase 之前的状态。
+- 冲突是**对方的新 commit** 和**自己正在搬的 commit** 改了同一处，和 working tree 无关。
+- 解决完是暂停状态，要用下面的命令让 rebase 接着走：
+  - 文件里还留有自己的改动 → `--continue`（保留这个 commit）
+  - 全部采用了对方的版本 → `--skip`（这个 commit 已经空了，扔掉）
+  - 判断方法：`git add` 后运行 `git diff --staged`，有输出用 continue，没输出用 skip。或者一律先 continue，提示 `skip this patch` 时再改用 skip。
 - ⚠️ **冲突标记里 `HEAD` 是对方（远程/master）的内容，`>>>>>>>` 后面那段才是自己的**，和 merge 冲突相反。VS Code 的"当前 / 传入"也跟着反过来。
 - 冲突中 `git branch` 显示 `(no branch, rebasing master)`，log 里暂时看不到自己的 commit，没丢，只是还没搬过来。
 - commit 是一个一个搬的（`Rebasing (1/2)`），可能要冲突、解决好几轮。
