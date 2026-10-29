@@ -588,6 +588,23 @@ git branch -a                                                       # 看本地 
   - 文件里还留有自己的改动 → `--continue`（保留这个 commit）
   - 全部采用了对方的版本 → `--skip`（这个 commit 已经空了，扔掉）
   - 判断方法：`git add` 后运行 `git diff --staged`，有输出用 continue，没输出用 skip。或者一律先 continue，提示 `skip this patch` 时再改用 skip。
+
+### tag：给 commit 起固定的名字（版本号）
+
+- 分支会随新 commit 往前走，**tag 永远钉在原地**。用来记住"发布某个版本时代码是什么样"。
+- `git tag -a v1.0 -m "附言"`：给当前 commit 打**附注 tag**，会记录打 tag 的人、时间和附言，正式版本都用这种。
+- `git tag -a v0.9 7a5ddb8 -m "附言"`：给旧 commit 补打 tag。
+- `git tag` 列出所有 tag；`git show v1.0` 上半部分是 tag 自己的信息（Tagger、时间、附言），下半部分是它指向的 commit。
+- ⚠️ **普通 `git push` 不推 tag**。`git push origin v1.0` 推一个，`git push --tags` 推全部。`git ls-remote --tags origin` 查看远程有哪些 tag。
+- 删除时本地和远程要分别删：`git tag -d 名字`，`git push origin --delete 名字`。
+- ⚠️ 已经推出去的正式版本号不要删了重打，打错了就发新版本（如 v1.0.1）。
+- `git switch --detach v0.9`：回到某个 tag 看当时的代码，看完 `git switch master` 回来。
+
+### detached HEAD
+
+- 平时 HEAD 指向分支；`detached` 时 HEAD 直接指向一个 commit，不在任何分支上。`git status` 显示 `HEAD detached at ...`。
+- 在这种状态下**只看不改**：这里做的 commit 不属于任何分支，切走后就找不到了（只能靠 reflog）。
+- 想基于旧版本改东西，先建分支：`git switch -c 新分支名`。
 - ⚠️ **冲突标记里 `HEAD` 是对方（远程/master）的内容，`>>>>>>>` 后面那段才是自己的**，和 merge 冲突相反。VS Code 的"当前 / 传入"也跟着反过来。
 - 冲突中 `git branch` 显示 `(no branch, rebasing master)`，log 里暂时看不到自己的 commit，没丢，只是还没搬过来。
 - commit 是一个一个搬的（`Rebasing (1/2)`），可能要冲突、解决好几轮。
